@@ -64,7 +64,7 @@ def process_page_safe(pdf_path: str, page_num: int):
                 print(f"[PAGE {page_num}] ⚠️ Warning: Failed to delete temp file: {cleanup_err}")
                 logger.warning(f"Failed to delete temp file {temp_img_path}: {cleanup_err}")
 
-def ingest_pdf_vision(pdf_path, filename):
+def ingest_pdf_vision(pdf_path, filename, user_id=None):
     print("\n" + "=" * 80)
     print(f"🚀 STARTING PRODUCTION VISION PIPELINE: {filename}")
     print("=" * 80)
@@ -74,7 +74,7 @@ def ingest_pdf_vision(pdf_path, filename):
     logger.info("=" * 80)
     
     print(f"📁 Creating document record for {filename}...")
-    document_id = create_document(filename=filename, pdf_path=pdf_path, document_type="VISION")
+    document_id = create_document(filename=filename, pdf_path=pdf_path, document_type="VISION", user_id=user_id)
     print(f"✅ Document ID created: {document_id}")
     
     doc = fitz.open(pdf_path)

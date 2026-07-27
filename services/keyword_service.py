@@ -4,6 +4,10 @@ from ingestion.shared.keyword_extractor import (
     extract_keywords,
 )
 
+from services.progress_service import (
+    update_keywords,
+)
+
 
 def generate_keywords(document_ids):
 
@@ -20,11 +24,50 @@ def generate_keywords(document_ids):
     total_documents = 0
     total_chunks = 0
 
+    # ==========================================================
+    # START PROGRESS
+    # ==========================================================
+
+    update_keywords(
+        0,
+        "Starting keyword generation...",
+    )
+
     print("\n" + "=" * 120)
     print("KEYWORD GENERATION STARTED")
     print("=" * 120)
 
     try:
+
+        # ======================================================
+        # CALCULATE TOTAL CHUNKS
+        # ======================================================
+
+        total_chunk_count = 0
+
+        for document_id in document_ids:
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM document_chunks dc
+                JOIN chunk_content cc
+                    ON cc.document_chunk_id = dc.id
+                WHERE
+                    dc.document_id = %s
+                    AND dc.is_active = TRUE
+                    AND cc.is_active = TRUE
+                """,
+                (document_id,),
+            )
+
+            total_chunk_count += cur.fetchone()[0]
+
+        processed_chunk_count = 0
+
+        # ======================================================
+        # PROCESS DOCUMENTS
+        # ======================================================
 
         for document_id in document_ids:
 
@@ -33,6 +76,20 @@ def generate_keywords(document_ids):
                 f"PROCESSING DOCUMENT ID: {document_id}"
             )
             print("-" * 120)
+
+            update_keywords(
+                max(
+                    1,
+                    int(
+                        (
+                            processed_chunk_count
+                            / max(total_chunk_count, 1)
+                        )
+                        * 100
+                    ),
+                ),
+                f"Loading document {document_id}",
+            )
 
             cur.execute(
                 """
@@ -68,9 +125,23 @@ def generate_keywords(document_ids):
                 try:
 
                     print("\n" + "." * 80)
+                    print(f"CHUNK ID : {chunk_id}")
 
-                    print(
-                        f"CHUNK ID : {chunk_id}"
+                    # ==================================================
+                    # UPDATE PROGRESS
+                    # ==================================================
+
+                    percent = int(
+                        (
+                            processed_chunk_count
+                            / max(total_chunk_count, 1)
+                        )
+                        * 100
+                    )
+
+                    update_keywords(
+                        percent,
+                        f"Generating keywords ({processed_chunk_count + 1}/{total_chunk_count})",
                     )
 
                     # ==================================================
@@ -90,7 +161,7 @@ def generate_keywords(document_ids):
                     )
 
                     # ==================================================
-                    # UPDATE KEYWORDS
+                    # UPDATE DATABASE
                     # ==================================================
 
                     cur.execute(
@@ -114,22 +185,21 @@ def generate_keywords(document_ids):
                         ),
                     )
 
-                    # ==================================================
-                    # SAVE IMMEDIATELY
-                    # ==================================================
-
                     conn.commit()
+
+                    processed_chunks += 1
+                    total_chunks += 1
+                    processed_chunk_count += 1
 
                     print(
                         f"CHUNK {chunk_id} SAVED SUCCESSFULLY"
                     )
 
-                    processed_chunks += 1
-                    total_chunks += 1
-
                 except Exception as e:
 
                     conn.rollback()
+
+                    processed_chunk_count += 1
 
                     print(
                         f"\nFAILED TO PROCESS CHUNK {chunk_id}"
@@ -144,31 +214,33 @@ def generate_keywords(document_ids):
             total_documents += 1
 
             print("\n" + "✓" * 80)
-
             print(
                 f"DOCUMENT {document_id} COMPLETED"
             )
-
             print(
                 f"CHUNKS PROCESSED : {processed_chunks}"
             )
-
             print("✓" * 80)
 
-        print("\n" + "=" * 120)
+        # ======================================================
+        # COMPLETE
+        # ======================================================
 
+        update_keywords(
+            100,
+            "Keyword generation completed.",
+        )
+
+        print("\n" + "=" * 120)
         print(
             "KEYWORD GENERATION COMPLETED"
         )
-
         print(
             f"DOCUMENTS PROCESSED : {total_documents}"
         )
-
         print(
             f"TOTAL CHUNKS PROCESSED : {total_chunks}"
         )
-
         print("=" * 120)
 
         return {
@@ -180,6 +252,11 @@ def generate_keywords(document_ids):
     except Exception as e:
 
         conn.rollback()
+
+        update_keywords(
+            100,
+            "Keyword generation failed.",
+        )
 
         print(
             f"\nKEYWORD GENERATION FAILED : {e}"

@@ -17,7 +17,7 @@ def get_connection():
 
     # with conn.cursor() as cur:
     #     cur.execute(
-    #         "SET search_path TO plagiarism_score, public"
+    #         "SET search_path TO knowledge_base, public"
     #     )
 
     return conn

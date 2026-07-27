@@ -1,41 +1,112 @@
 from database.connection import get_connection
 
+
 def create_document(
     filename,
     pdf_path,
     document_type,
+    user_id=None,
 ):
+    """
+    Create a document record.
+
+    Book Pipeline:
+        user_id = None
+
+    Policy Pipeline (Authenticated):
+        user_id = Logged-in User ID
+    """
+
     conn = get_connection()
+
     cur = conn.cursor()
 
-    cur.execute(
-        """
-        INSERT INTO documents
-        (
-            document_name,
-            source_path,
-            document_type,
-            status,
-            created_by
+    print("\n" + "=" * 120)
+    print("CREATING DOCUMENT")
+    print("=" * 120)
+
+    print(f"FILE NAME     : {filename}")
+    print(f"SOURCE PATH   : {pdf_path}")
+    print(f"DOCUMENT TYPE : {document_type}")
+    print(f"USER ID       : {user_id}")
+    print(f"STATUS        : INDEXING")
+
+    # =====================================================
+    # INSERT WITHOUT USER
+    # =====================================================
+
+    if user_id is None:
+
+        print("DOCUMENT OWNER : SYSTEM / LEGACY PIPELINE")
+
+        cur.execute(
+            """
+            INSERT INTO documents
+            (
+                document_name,
+                source_path,
+                document_type,
+                status,
+                created_by
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            RETURNING id
+            """,
+            (
+                filename,
+                pdf_path,
+                document_type,
+                "INDEXING",
+                "SYSTEM",
+            ),
         )
-        VALUES
-        (
-            %s,
-            %s,
-            %s,
-            %s,
-            %s
+
+    # =====================================================
+    # INSERT WITH USER
+    # =====================================================
+
+    else:
+
+        print(f"DOCUMENT OWNER : USER {user_id}")
+
+        cur.execute(
+            """
+            INSERT INTO documents
+            (
+                document_name,
+                source_path,
+                document_type,
+                user_id,
+                status,
+                created_by
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            RETURNING id
+            """,
+            (
+                filename,
+                pdf_path,
+                document_type,
+                user_id,
+                "INDEXING",
+                "SYSTEM",
+            ),
         )
-        RETURNING id
-        """,
-        (
-            filename,
-            pdf_path,
-            document_type,
-            "INDEXING",
-            "SYSTEM",
-        )
-    )
 
     document_id = cur.fetchone()[0]
 
@@ -49,6 +120,7 @@ def create_document(
     print(f"FILE NAME     : {filename}")
     print(f"SOURCE PATH   : {pdf_path}")
     print(f"DOCUMENT TYPE : {document_type}")
+    print(f"USER ID       : {user_id}")
     print(f"STATUS        : INDEXING")
 
     cur.close()
@@ -62,6 +134,7 @@ def update_document_status(
     status,
 ):
     conn = get_connection()
+
     cur = conn.cursor()
 
     cur.execute(
@@ -75,12 +148,17 @@ def update_document_status(
         (
             status,
             document_id,
-        )
+        ),
     )
 
     conn.commit()
 
-    print(f"\nDOCUMENT {document_id} STATUS UPDATED TO: {status}")
+    print("\n" + "=" * 120)
+    print("DOCUMENT STATUS UPDATED")
+    print("=" * 120)
+
+    print(f"DOCUMENT ID : {document_id}")
+    print(f"NEW STATUS  : {status}")
 
     cur.close()
     conn.close()

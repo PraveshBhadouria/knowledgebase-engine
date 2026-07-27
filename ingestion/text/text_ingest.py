@@ -43,6 +43,7 @@ from ingestion.shared.document_store import (
 def ingest_pdf_text(
     pdf_path,
     filename,
+    user_id=None,
 ):
 
     print("\n" + "🚀" * 40)
@@ -61,6 +62,7 @@ def ingest_pdf_text(
         filename=filename,
         pdf_path=pdf_path,
         document_type="TEXT",
+        user_id=user_id,
     )
 
     print(f"✅ DOCUMENT CREATED : {document_id}")
