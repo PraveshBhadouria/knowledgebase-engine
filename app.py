@@ -20,7 +20,7 @@ from services.ingestion_service import (
     ingest_vision,
 )
 
-from services.llm_service import generate_answer
+from services.answer_router import route_answer
 from services.evaluation_service import evaluate_answer
 from services.keyword_service import generate_keywords
 
@@ -172,7 +172,6 @@ def chat(
     print(f"QUESTION    : {req.query}")
 
     conn = get_connection()
-
     cur = conn.cursor()
 
     try:
@@ -186,6 +185,7 @@ def chat(
             SELECT
                 id,
                 document_name,
+                document_type,
                 status
             FROM documents
             WHERE
@@ -210,11 +210,11 @@ def chat(
                 detail="You do not have access to this document.",
             )
 
-        if document[2] != "READY":
+        if document[3] != "READY":
 
             raise HTTPException(
                 status_code=400,
-                detail=f"Document status is '{document[2]}'. It is not ready for chat.",
+                detail=f"Document status is '{document[3]}'. It is not ready for chat.",
             )
 
         print(f"DOCUMENT VERIFIED : {document[1]}")
@@ -228,27 +228,38 @@ def chat(
             req.document_id,
         )
 
-        if not context.strip():
-
-            return {
-                "document_id": req.document_id,
-                "document_name": document[1],
-                "answer": "I couldn't find relevant information in the selected document.",
-            }
-
         # ==================================================
-        # GENERATE ANSWER
+        # ROUTE ANSWER
         # ==================================================
 
-        answer = generate_answer(
-            req.query,
-            context,
-        )
+        try:
+
+            result = route_answer(
+                question=req.query,
+                context=context,
+                document_type=document[2],
+            )   
+
+        except Exception as e:
+
+            print("\n" + "=" * 100)
+            print("ROUTE ANSWER ERROR")
+            print("=" * 100)
+            print(e)
+
+            raise HTTPException(
+                status_code=500,
+                detail="An error occurred while generating the answer.",
+            )
 
         return {
             "document_id": req.document_id,
             "document_name": document[1],
-            "answer": answer,
+            "document_type": document[2],
+            "answer": result["answer"],
+            "source": result["source"],
+            "classification": result["classification"],
+            "used_web_search": result["used_web_search"],
         }
 
     finally:
