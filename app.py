@@ -51,6 +51,7 @@ from api.policy_upload import (
 )
 
 from api.progress import router as progress_router
+from api.relevant_keywords import router as relevant_keywords_router
 
 # ==========================================================
 # FASTAPI APP
@@ -81,6 +82,7 @@ app.include_router(auth_router)
 app.include_router(policy_router)
 app.include_router(dashboard_router)
 app.include_router(progress_router)
+app.include_router(relevant_keywords_router)
 
 # ==========================================================
 # ROOT
