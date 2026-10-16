@@ -15,8 +15,8 @@ def get_connection():
         port=os.getenv("PGPORT"),
     )
 
-    # with conn.cursor() as cur:
-    #     cur.execute(
-    #         "SET search_path TO plagiarism_score, public"
-    #     )
+    with conn.cursor() as cur:
+        cur.execute(
+            "SET search_path TO plagiarism_score, public"
+        )
     return conn
